@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Алгоритм Беллмана-Форда</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            background-color: #f0f0f0;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            width: 90%;
+            max-width: 1200px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        #controls {
+            flex: 1;
+            margin-right: 20px;
+        }
+        canvas {
+            border: 1px solid #333;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .buttons {
+            margin-top: 20px;
+        }
+        .buttons input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            margin-right: 10px;
+            width: 120px;
+        }
+        button {
+            padding: 8px 15px;
+            margin-top: 10px;
+            background-color: #0099FF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #007acc;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        h1 {
+            color: #333;
+        }
+        pre {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="controls">
+            <h1>Алгоритм Беллмана-Форда</h1>
+            <div>
+                <label for="vertices">Введіть кількість вершин:</label>
+                <input type="number" id="vertices" min="2" max="10" value="0">
+                <button onclick="initializeGraph()">Створити граф</button>
+            </div>
+            <div>
+                <label for="edge">Введіть ребро (від, до, вага):</label>
+                <input type="number" id="from" min="1" placeholder="Від">
+                <input type="number" id="to" min="1" placeholder="До">
+                <input type="number" id="weight" placeholder="Вага">
+                <button onclick="addEdge()">Додати ребро</button>
+            </div>
+            <div>
+                <label for="removeEdge">Видалити ребро (від, до):</label>
+                <input type="number" id="removeFrom" min="1" placeholder="Від">
+                <input type="number" id="removeTo" min="1" placeholder="До">
+                <button onclick="removeEdge()">Видалити ребро</button>
+            </div>
+            <div>
+                <label for="start">Введіть початкову вершину для алгоритму Беллмана-Форда:</label>
+                <input type="number" id="start" placeholder="Початкова вершина">
+                <button onclick="runBellmanFord()">Запустити алгоритм</button>
+            </div>
+            <div>
+                <button onclick="clearGraph()">Очистити граф</button>
+            </div>
+            <h3>Коротші відстані:</h3>
+            <pre id="output"></pre>
+            <p id="executionTime"></p>
+            <p id="memoryUsage"></p>
+        </div>
+        <canvas id="graphCanvas" width="600" height="600"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("graphCanvas");
+        const ctx = canvas.getContext("2d");
+        let vertices = [];
+        let edges = [];
+
+        function initializeGraph() {
+            const numVertices = parseInt(document.getElementById("vertices").value);
+            vertices = [];
+            edges = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const radius = 200;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            for (let i = 0; i < numVertices; i++) {
+                const angle = (i * Math.PI * 2) / numVertices;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                vertices.push({ x, y, id: i + 1 });
+            }
+            drawGraph();
+        }
+
+        function addEdge() {
+            const from = parseInt(document.getElementById("from").value) - 1;
+            const to = parseInt(document.getElementById("to").value) - 1;
+            const weight = parseInt(document.getElementById("weight").value);
+            if (from >= 0 && to >= 0 && from < vertices.length && to < vertices.length) {
+                edges.push({ from, to, weight });
+                drawGraph();
+            } else {
+                alert("Невірні вершини!");
+            }
+        }
+
+        function removeEdge() {
+            const from = parseInt(document.getElementById("removeFrom").value) - 1;
+            const to = parseInt(document.getElementById("removeTo").value) - 1;
+            const edgeIndex = edges.findIndex(edge => edge.from === from && edge.to === to);
+            if (edgeIndex === -1) {
+                alert("Це ребро не існує!");
+            } else {
+                edges.splice(edgeIndex, 1);
+                drawGraph();
+            }
+        }
+
+        function clearGraph() {
+            vertices = [];
+            edges = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            document.getElementById("vertices").value = "0";
+            document.getElementById("from").value = "";
+            document.getElementById("to").value = "";
+            document.getElementById("weight").value = "";
+            document.getElementById("removeFrom").value = "";
+            document.getElementById("removeTo").value = "";
+            document.getElementById("start").value = "";
+            document.getElementById("output").textContent = "";
+            document.getElementById("executionTime").textContent = "";
+            document.getElementById("memoryUsage").textContent = "";
+        }
+
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            edges.forEach(edge => {
+                const fromVertex = vertices[edge.from];
+                const toVertex = vertices[edge.to];
+                drawEdge(fromVertex, toVertex, edge.weight);
+            });
+            vertices.forEach(vertex => {
+                drawVertex(vertex);
+            });
+        }
+
+        function drawVertex(vertex) {
+            ctx.beginPath();
+            ctx.arc(vertex.x, vertex.y, 20, 0, Math.PI * 2);
+            ctx.fillStyle = "lightblue";
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = "black";
+            ctx.font = "12px Arial";
+            ctx.fillText(vertex.id, vertex.x - 5, vertex.y + 5);
+        }
+
+        function drawEdge(fromVertex, toVertex, weight) {
+            ctx.beginPath();
+            ctx.moveTo(fromVertex.x, fromVertex.y);
+            ctx.lineTo(toVertex.x, toVertex.y);
+            ctx.strokeStyle = "black";
+            ctx.stroke();
+            const midX = (fromVertex.x + toVertex.x) / 2;
+            const midY = (fromVertex.y + toVertex.y) / 2;
+            ctx.fillStyle = "black";
+            ctx.font = "12px Arial";
+            ctx.fillText(weight, midX, midY);
+        }
+
+      
+        function sizeof(value) {
+            if (value === null) return 0;
+            if (typeof value === 'boolean') return 4;
+            if (typeof value === 'number') return 8;
+            if (typeof value === 'string') return value.length * 2;  
+            if (Array.isArray(value)) {
+                let size = 0;
+                for (let i = 0; i < value.length; i++) {
+                    size += sizeof(value[i]);
+                }
+                return size;
+            }
+            if (typeof value === 'object') {
+                let size = 0;
+                for (const key in value) {
+                    if (value.hasOwnProperty(key)) {
+                        size += sizeof(value[key]);
+                    }
+                }
+                return size;
+            }
+            return 0;
+        }
+
+        function calculateMemoryUsage() {
+            const memoryUsed = sizeof(vertices) + sizeof(edges);
+            document.getElementById("memoryUsage").textContent = `Приблизно використано пам'яті: ${memoryUsed} байт`;
+        }
+
+        async function runBellmanFord() {
+            const startVertex = parseInt(document.getElementById("start").value) - 1;
+            if (startVertex < 0 || startVertex >= vertices.length) {
+                alert("Невірна початкова вершина!");
+                return;
+            }
+
+            const startTime = performance.now();
+
+            
+            const dist = Array(vertices.length).fill(Infinity);
+            dist[startVertex] = 0;
+
+            // Алгоритм Беллмана-Форда
+            for (let i = 0; i < vertices.length - 1; i++) {
+                for (let edge of edges) {
+                    if (dist[edge.from] !== Infinity && dist[edge.from] + edge.weight < dist[edge.to]) {
+                        dist[edge.to] = dist[edge.from] + edge.weight;
+                    }
+                }
+            }
+
+            const endTime = performance.now();
+            const executionTime = endTime - startTime;
+            document.getElementById("executionTime").textContent = `Час виконання алгоритму: ${executionTime.toFixed(2)} мс`;
+
+            
+            const output = dist.map((d, index) => `Вершина ${index + 1}: ${d === Infinity ? 'Немає шляху' : d}`).join("\n");
+            document.getElementById("output").textContent = output;
+
+            calculateMemoryUsage();  
+        }
+    </script>
+
+</body>
+</html>
